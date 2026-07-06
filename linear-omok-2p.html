@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>일차함수 변형오목 대결</title>
+<style>
+  :root{
+    --bg:#f7f7fb;
+    --panel:#ffffff;
+    --ink:#1f2937;
+    --muted:#6b7280;
+    --line:#d1d5db;
+    --axis:#111827;
+    --accent:#2563eb;
+    --win:#ef4444;
+    --good:#16a34a;
+    --bad:#dc2626;
+    --soft:#eef2ff;
+    --black:#111827;
+    --white:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+  body{min-height:100vh;}
+  .app{width:min(1180px,100%);margin:0 auto;padding:14px;}
+  header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
+  h1{font-size:clamp(22px,3.2vw,36px);margin:0;letter-spacing:-0.04em;}
+  .subtitle{margin:4px 0 0;color:var(--muted);font-size:14px;line-height:1.45;}
+  .layout{display:grid;grid-template-columns:minmax(300px,760px) minmax(300px,1fr);gap:12px;align-items:start;}
+  .card{background:var(--panel);border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.06);overflow:hidden;}
+  .board-card{padding:10px;}
+  .board-wrap{position:relative;width:100%;aspect-ratio:1/1;touch-action:manipulation;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:10px;background:white;}
+  .panel{padding:14px;}
+  .panel h2{font-size:18px;margin:0 0 10px;letter-spacing:-0.03em;}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;}
+  label{font-size:14px;color:#374151;font-weight:700;}
+  input,select,button{font:inherit;}
+  input,select{border:1px solid #d1d5db;border-radius:10px;padding:9px 10px;background:white;color:var(--ink);min-height:40px;}
+  input[type="text"]{width:100%;}
+  .name-setup{display:grid;grid-template-columns:1fr;gap:10px;margin:8px 0 12px;}
+  .name-row{display:grid;grid-template-columns:minmax(92px,auto) minmax(0,1fr);gap:10px;align-items:center;padding:10px 12px;border:1px solid #e5e7eb;border-radius:14px;background:#f9fafb;}
+  .name-row label{display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:15px;color:#111827;}
+  .name-input{min-width:0;width:100%;font-weight:800;}
+  .name-hint{margin:0 0 6px;font-size:13px;color:var(--muted);line-height:1.4;}
+  .role-hint{margin:8px 0 10px;padding:10px 12px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af;border-radius:14px;font-size:13px;font-weight:900;line-height:1.4;}
+  button{border:0;border-radius:12px;padding:10px 12px;background:#e5e7eb;color:#111827;font-weight:800;cursor:pointer;min-height:42px;}
+  button.primary{background:var(--accent);color:white;}
+  button.danger{background:#fee2e2;color:#991b1b;}
+  button.ghost{background:#f3f4f6;color:#374151;}
+  button.good{background:#dcfce7;color:#166534;}
+  button:active{transform:translateY(1px);}
+  button:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+  .turn{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  .player-card{border:2px solid #e5e7eb;border-radius:14px;padding:10px;background:#fafafa;position:relative;}
+  .player-card.active{border-color:var(--accent);background:var(--soft);}
+  .player-title{display:flex;align-items:center;gap:8px;font-weight:900;font-size:15px;}
+  .stone-icon{width:18px;height:18px;border-radius:50%;border:2px solid #111827;display:inline-block;flex:none;}
+  .stone-icon.black{background:#111827;}
+  .stone-icon.white{background:#fff;}
+  .score{font-size:28px;font-weight:950;margin-top:4px;letter-spacing:-0.03em;}
+  .small{font-size:13px;color:var(--muted);line-height:1.45;}
+  .status{border-radius:14px;background:#f9fafb;border:1px solid #e5e7eb;padding:12px;margin:10px 0;font-weight:800;line-height:1.45;}
+  .status.win{background:#fff1f2;border-color:#fecdd3;color:#9f1239;}
+  .status.good{background:#f0fdf4;border-color:#bbf7d0;color:#166534;}
+  .win-main{font-size:18px;font-weight:950;letter-spacing:-0.03em;}
+  .priority-callout{margin-top:12px;padding:13px 14px;border:2px solid #fb7185;border-radius:16px;background:#fff;color:#7f1d1d;text-align:center;box-shadow:0 6px 14px rgba(244,63,94,.10);}
+  .priority-label{font-size:14px;font-weight:950;color:#9f1239;letter-spacing:-0.02em;}
+  .priority-name{display:block;margin-top:2px;font-size:clamp(30px,4vw,44px);font-weight:1000;line-height:1.05;color:#be123c;letter-spacing:-0.06em;}
+  .priority-sub{margin-top:6px;font-size:13px;font-weight:800;color:#6b7280;}
+  .priority-panel{margin:10px 0 12px;padding:13px 14px;border:2px solid #2563eb;border-radius:16px;background:#eff6ff;text-align:center;box-shadow:0 6px 14px rgba(37,99,235,.10);}
+  .priority-panel .priority-label{color:#1d4ed8;}
+  .priority-panel .priority-name{color:#1e40af;}
+  .rule-list{margin:8px 0 0;padding-left:18px;color:#374151;line-height:1.55;font-size:14px;}
+  .rule-list li{margin:3px 0;}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0 12px;}
+  .tabs button{padding:9px;background:#f3f4f6;color:#374151;border-radius:10px;}
+  .tabs button.active{background:#111827;color:white;}
+  .judge-panel{display:none;margin-top:12px;border:3px solid #2563eb;background:#ffffff;border-radius:22px;padding:14px;box-shadow:0 18px 42px rgba(37,99,235,.22);position:relative;z-index:10;}
+  .judge-panel.open{display:block;animation:popIn .16s ease-out;}
+  @keyframes popIn{from{opacity:0;transform:translateY(8px) scale(.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+  .lock-banner{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin:-2px 0 12px;padding:12px 13px;border-radius:16px;background:#111827;color:#fff;}
+  .lock-title{font-size:18px;font-weight:1000;letter-spacing:-0.04em;}
+  .lock-sub{font-size:12px;color:#d1d5db;font-weight:800;margin-top:2px;line-height:1.35;}
+  .progress-pill{display:inline-flex;align-items:center;justify-content:center;min-width:86px;border-radius:999px;background:#fef3c7;color:#92400e;padding:8px 10px;font-weight:1000;}
+  .progress-pill.done{background:#dcfce7;color:#166534;}
+  .answer-box{border:1px solid #e5e7eb;background:#fafafa;border-radius:14px;padding:10px;margin:10px 0;}
+  .answer-box.completed{border-color:#86efac;background:#f0fdf4;}
+  .bonus-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed #d1d5db;}
+  .bonus-note{font-size:13px;font-weight:900;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:9px 10px;margin-top:8px;}
+  .bonus-note.done{color:#166534;background:#f0fdf4;border-color:#bbf7d0;}
+  .answer-box h3{font-size:15px;margin:0 0 8px;}
+  .answer-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .equation-row{display:grid;grid-template-columns:auto minmax(60px,1fr) auto minmax(60px,1fr);gap:6px;align-items:center;}
+  .result{font-size:13px;font-weight:800;margin-top:6px;min-height:20px;}
+  .result.ok{color:var(--good);}
+  .result.no{color:var(--bad);}
+  table{width:100%;border-collapse:collapse;font-size:13px;overflow:hidden;border-radius:10px;}
+  th,td{border:1px solid #e5e7eb;padding:7px;text-align:center;vertical-align:middle;}
+  th{background:#f3f4f6;}
+  .history{max-height:210px;overflow:auto;border:1px solid #e5e7eb;border-radius:12px;}
+  .badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:900;}
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111827;color:white;padding:10px 14px;border-radius:999px;font-weight:800;box-shadow:0 10px 25px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:.2s;z-index:50;max-width:calc(100% - 28px);text-align:center;}
+  .toast.show{opacity:1;bottom:28px;}
+  .help{display:none;}
+  .help.open{display:block;}
+  .inline-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f3f4f6;border-radius:6px;padding:1px 5px;}
+  .teacher-only{display:none !important;}
+  @media (max-width: 860px){
+    .layout{grid-template-columns:1fr;}
+    header{display:block;}
+    .panel{padding:12px;}
+    .board-card{padding:8px;}
+  }
+  @media (max-width: 420px){
+    .name-row{grid-template-columns:1fr;gap:7px;}
+    .name-row label{font-size:14px;}
+    .turn{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>일차함수 변형오목 대결</h1>
+      <p class="subtitle">한 태블릿에서 2명이 번갈아 두는 좌표평면 오목입니다. <b>6목 허용</b>: 한 일차함수 직선 위에 자기 돌이 5개 이상 있으면 승리합니다. 단, 중간에 상대편 돌이 있으면 막힙니다.</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="card board-card">
+      <div class="board-wrap">
+        <canvas id="board" aria-label="좌표평면 보드"></canvas>
+      </div>
+    </section>
+
+    <aside class="card panel">
+      <div class="tabs">
+        <button id="tabGame" class="active" type="button">게임</button>
+        <button id="tabHelp" type="button">규칙/도움말</button>
+      </div>
+
+      <div id="gameView">
+        <h2>이름 설정</h2>
+        <p class="name-hint">이름은 학생 기준으로 한 번만 입력합니다. 흑돌/백돌은 다음 판마다 자동으로 바뀝니다.</p>
+        <div class="name-setup">
+          <div class="name-row">
+            <label for="blackName">학생 1 이름</label>
+            <input id="blackName" class="name-input" type="text" value="학생 1" placeholder="학생 1 이름 입력" />
+          </div>
+          <div class="name-row">
+            <label for="whiteName">학생 2 이름</label>
+            <input id="whiteName" class="name-input" type="text" value="학생 2" placeholder="학생 2 이름 입력" />
+          </div>
+        </div>
+        <div id="roleHint" class="role-hint">이번 판: 학생 1 = 흑돌, 학생 2 = 백돌</div>
+
+        <div class="turn">
+          <div id="blackCard" class="player-card active">
+            <div class="player-title"><span class="stone-icon black"></span><span id="blackLabel">학생 1</span></div>
+            <div class="score"><span id="blackScore">0</span>점</div>
+          </div>
+          <div id="whiteCard" class="player-card">
+            <div class="player-title"><span class="stone-icon white"></span><span id="whiteLabel">학생 2</span></div>
+            <div class="score"><span id="whiteScore">0</span>점</div>
+          </div>
+        </div>
+
+        <div id="status" class="status">현재 차례: <b>학생 A</b> — 빈 격자점을 터치하세요.</div>
+
+        <div class="row">
+          <button id="undoBtn" type="button">되돌리기</button>
+          <button id="resetBtn" class="danger" type="button">새 게임</button>
+          <button id="nextRoundBtn" class="primary" type="button" disabled>다음 판</button>
+        </div>
+        <p class="small">되돌리기는 승부가 나기 전 마지막 수만 취소합니다. 다음 판은 점수를 유지하고 <b>흑돌/백돌을 자동 교대</b>합니다.</p>
+
+        <div id="judgePanel" class="judge-panel" role="dialog" aria-modal="false" aria-labelledby="bonusTitle">
+          <div class="lock-banner">
+            <div>
+              <div class="lock-title">추가점수 먼저!</div>
+              <div class="lock-sub">오목판은 왼쪽에 그대로 보입니다. 3개 항목을 모두 맞혀야 다음 판으로 넘어갈 수 있습니다.</div>
+            </div>
+            <div id="bonusProgress" class="progress-pill">완료 0/3</div>
+          </div>
+          <h2 id="bonusTitle">추가 점수</h2>
+          <div id="priorityPanel" class="priority-panel" aria-live="polite">
+            <div class="priority-label">추가점수 우선권</div>
+            <span id="priorityName" class="priority-name">-</span>
+            <div class="priority-sub">진 사람이 먼저 도전합니다.</div>
+          </div>
+          <p class="small"><b>우선권 학생</b>이 틀리면 도전자를 바꿔 승리자가 가져갈 수 있습니다.</p>
+
+          <div class="row">
+            <label for="challenger">현재 답하는 학생</label>
+            <select id="challenger"></select>
+          </div>
+
+          <div class="answer-box" data-item="xIntercept">
+            <h3>① x절편 <span class="badge">1점</span></h3>
+            <input id="xInput" type="text" placeholder="예: -8/3, 1.5, 0" />
+            <div class="row">
+              <button class="good checkBtn" type="button" data-kind="x">채점</button>
+              <button class="ghost revealBtn teacher-only" type="button" data-kind="x">정답 보기</button>
+            </div>
+            <div id="xResult" class="result"></div>
+          </div>
+
+          <div class="answer-box" data-item="yIntercept">
+            <h3>② y절편 <span class="badge">1점</span></h3>
+            <input id="yInput" type="text" placeholder="예: 2, -3/4, 0.75" />
+            <div class="row">
+              <button class="good checkBtn" type="button" data-kind="y">채점</button>
+              <button class="ghost revealBtn teacher-only" type="button" data-kind="y">정답 보기</button>
+            </div>
+            <div id="yResult" class="result"></div>
+          </div>
+
+          <div class="answer-box" data-item="equation">
+            <h3>③ 일차함수식 <span class="badge">1점</span></h3>
+            <div class="equation-row">
+              <span>y =</span>
+              <input id="mInput" type="text" placeholder="기울기" />
+              <span>x +</span>
+              <input id="bInput" type="text" placeholder="y절편" />
+            </div>
+            <p class="small">예: 기울기가 음수인 분수는 <span class="inline-code">-3/4</span>처럼 입력. 소수/분수 모두 가능.</p>
+            <div class="row">
+              <button class="good checkBtn" type="button" data-kind="eq">채점</button>
+              <button class="ghost revealBtn teacher-only" type="button" data-kind="eq">정답 보기</button>
+            </div>
+            <div id="eqResult" class="result"></div>
+          </div>
+
+          <div id="bonusNote" class="bonus-note">추가점수 완료 전에는 다음 판/새 게임으로 넘어갈 수 없습니다.</div>
+          <div class="bonus-actions">
+            <button id="bonusDoneBtn" class="primary" type="button" disabled>추가점수 완료하고 다음 판</button>
+          </div>
+        </div>
+
+        <h2 style="margin-top:16px;">기록</h2>
+        <div class="history">
+          <table>
+            <thead>
+              <tr><th>항목</th><th>답</th><th>맞힌 학생</th></tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="3" class="small">아직 기록이 없습니다.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="helpView" class="help">
+        <h2>게임 규칙</h2>
+        <ul class="rule-list">
+          <li>두 학생이 번갈아 좌표평면의 <b>격자점</b>에 돌을 둡니다.</li>
+          <li>이름은 학생 1/학생 2 기준으로 한 번만 입력하고, <b>다음 판마다 흑돌과 백돌이 자동으로 교대</b>됩니다.</li>
+          <li>자기 돌 <b>5개 이상</b>이 하나의 일차함수 직선 위에 있으면 승리합니다.</li>
+          <li>단, 그 직선 위에서 내 돌들 사이에 <b>상대편 돌이 끼어 있으면 막힌 것</b>으로 보아 승리로 인정하지 않습니다.</li>
+          <li><b>가로 직선</b>과 <b>세로 직선</b>은 무효입니다. 즉, <b>y=b</b> 꼴과 <b>x=a</b> 꼴은 승리로 인정하지 않습니다.</li>
+          <li>승리자는 오목 점수 <b>5점</b>을 얻습니다.</li>
+          <li>승부 후 x절편, y절편, 일차함수식을 맞히면 항목별 <b>1점</b>을 얻습니다.</li>
+          <li>추가 점수 우선권은 진 사람에게 있습니다. 진 사람이 못 맞히면 승리자가 도전할 수 있습니다.</li>
+        </ul>
+        <h2 style="margin-top:16px;">입력 방법</h2>
+        <ul class="rule-list">
+          <li>정수: <span class="inline-code">2</span>, <span class="inline-code">-5</span></li>
+          <li>소수: <span class="inline-code">0.75</span>, <span class="inline-code">-1.5</span></li>
+          <li>분수: <span class="inline-code">3/4</span>, <span class="inline-code">-3/4</span>, <span class="inline-code">6/8</span></li>
+          <li>일차함수식은 <b>y = (기울기)x + (y절편)</b> 꼴로 나누어 입력합니다.</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+(() => {
+  const MIN = -15;
+  const MAX = 15;
+  const N = MAX - MIN;
+  const EPS = 1e-3;
+
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('status');
+  const blackName = document.getElementById('blackName');
+  const whiteName = document.getElementById('whiteName');
+  const blackLabel = document.getElementById('blackLabel');
+  const whiteLabel = document.getElementById('whiteLabel');
+  const blackScoreEl = document.getElementById('blackScore');
+  const whiteScoreEl = document.getElementById('whiteScore');
+  const roleHint = document.getElementById('roleHint');
+  const blackCard = document.getElementById('blackCard');
+  const whiteCard = document.getElementById('whiteCard');
+  const undoBtn = document.getElementById('undoBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const nextRoundBtn = document.getElementById('nextRoundBtn');
+  const judgePanel = document.getElementById('judgePanel');
+  const bonusProgress = document.getElementById('bonusProgress');
+  const bonusDoneBtn = document.getElementById('bonusDoneBtn');
+  const bonusNote = document.getElementById('bonusNote');
+  const challenger = document.getElementById('challenger');
+  const priorityName = document.getElementById('priorityName');
+  const historyBody = document.getElementById('historyBody');
+  const toast = document.getElementById('toast');
+  const tabGame = document.getElementById('tabGame');
+  const tabHelp = document.getElementById('tabHelp');
+  const gameView = document.getElementById('gameView');
+  const helpView = document.getElementById('helpView');
+
+  const inputs = {
+    x: document.getElementById('xInput'),
+    y: document.getElementById('yInput'),
+    m: document.getElementById('mInput'),
+    b: document.getElementById('bInput')
+  };
+  const results = {
+    x: document.getElementById('xResult'),
+    y: document.getElementById('yResult'),
+    eq: document.getElementById('eqResult')
+  };
+
+  let deviceRatio = window.devicePixelRatio || 1;
+  let boardRect = null;
+  let padding = 30;
+  let cell = 10;
+  let current = 'black';
+  let gameOver = false;
+  let moves = [];
+  let stones = new Map(); // key: "x,y" -> {x,y,player}
+  let colorOwner = { black: 's1', white: 's2' }; // 이번 판의 흑/백 담당 학생
+  let scores = { s1: 0, s2: 0 }; // 점수는 색이 아니라 학생 기준으로 누적
+  let winData = null;
+  let awarded = { x:false, y:false, eq:false };
+  let historyRows = [];
+
+  function getStudentName(student){
+    const v = (student === 's1' ? blackName.value : whiteName.value).trim();
+    return v || (student === 's1' ? '학생 1' : '학생 2');
+  }
+  function getName(player){
+    return getStudentName(colorOwner[player]);
+  }
+  function ownerOf(player){ return colorOwner[player]; }
+  function scoreOf(player){ return scores[ownerOf(player)]; }
+  function addScore(player, point){ scores[ownerOf(player)] += point; }
+  function swapColorOwners(){
+    const tmp = colorOwner.black;
+    colorOwner.black = colorOwner.white;
+    colorOwner.white = tmp;
+  }
+  function resetColorOwners(){ colorOwner = { black: 's1', white: 's2' }; }
+  function other(player){ return player === 'black' ? 'white' : 'black'; }
+  function stoneKey(x,y){ return `${x},${y}`; }
+
+  function gcd(a,b){
+    a = Math.abs(a); b = Math.abs(b);
+    while(b){ const t = b; b = a % b; a = t; }
+    return a || 1;
+  }
+
+  function makeFrac(num, den=1){
+    if(den === 0) throw new Error('denominator zero');
+    if(den < 0){ num = -num; den = -den; }
+    const g = gcd(num, den);
+    return { n: num/g, d: den/g };
+  }
+  function addFrac(a,b){ return makeFrac(a.n*b.d + b.n*a.d, a.d*b.d); }
+  function subFrac(a,b){ return makeFrac(a.n*b.d - b.n*a.d, a.d*b.d); }
+  function mulFrac(a,b){ return makeFrac(a.n*b.n, a.d*b.d); }
+  function divFrac(a,b){ return makeFrac(a.n*b.d, a.d*b.n); }
+  function negFrac(a){ return { n:-a.n, d:a.d }; }
+  function fracValue(f){ return f.n / f.d; }
+  function fracText(f){
+    if(f.n === 0) return '0';
+    if(f.d === 1) return String(f.n);
+    return `${f.n}/${f.d}`;
+  }
+  function signedTerm(f){
+    if(f.n === 0) return '';
+    return f.n > 0 ? ` + ${fracText(f)}` : ` - ${fracText({n:Math.abs(f.n), d:f.d})}`;
+  }
+  function equationText(m,b){
+    let mTxt;
+    if(m.n === 1 && m.d === 1) mTxt = '';
+    else if(m.n === -1 && m.d === 1) mTxt = '-';
+    else mTxt = fracText(m);
+    return `y = ${mTxt}x${signedTerm(b)}`;
+  }
+
+  function normalizeLine(p1,p2){
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    if(dx === 0 || dy === 0) return null; // vertical or horizontal invalid
+    let A = dy;
+    let B = -dx;
+    let C = dx * p1.y - dy * p1.x;
+    const g = gcd(gcd(A,B),C);
+    A /= g; B /= g; C /= g;
+    if(A < 0 || (A === 0 && B < 0) || (A === 0 && B === 0 && C < 0)){
+      A = -A; B = -B; C = -C;
+    }
+    return {A,B,C,key:`${A},${B},${C}`};
+  }
+  function onLine(p,line){ return line.A*p.x + line.B*p.y + line.C === 0; }
+
+  function lineMath(line){
+    // A x + B y + C = 0 => y = (-A/B)x + (-C/B)
+    const m = makeFrac(-line.A, line.B);
+    const b = makeFrac(-line.C, line.B);
+    const xInt = divFrac(negFrac(b), m);
+    return { m, b, xInt, yInt: b, equation: equationText(m,b) };
+  }
+
+  function resizeCanvas(){
+    const box = canvas.parentElement.getBoundingClientRect();
+    const size = Math.floor(box.width);
+    deviceRatio = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(size * deviceRatio);
+    canvas.height = Math.floor(size * deviceRatio);
+    canvas.style.width = `${size}px`;
+    canvas.style.height = `${size}px`;
+    ctx.setTransform(deviceRatio,0,0,deviceRatio,0,0);
+    boardRect = {w:size, h:size};
+    padding = Math.max(24, Math.floor(size * 0.055));
+    cell = (size - padding * 2) / N;
+    draw();
+  }
+
+  function toScreen(x,y){
+    return {
+      sx: padding + (x - MIN) * cell,
+      sy: padding + (MAX - y) * cell
+    };
+  }
+  function fromScreen(px,py){
+    const x = Math.round((px - padding) / cell + MIN);
+    const y = Math.round(MAX - (py - padding) / cell);
+    if(x < MIN || x > MAX || y < MIN || y > MAX) return null;
+    const {sx,sy} = toScreen(x,y);
+    const dist = Math.hypot(px - sx, py - sy);
+    if(dist > cell * 0.45) return null;
+    return {x,y};
+  }
+
+  function draw(){
+    if(!boardRect) return;
+    const w = boardRect.w, h = boardRect.h;
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,w,h);
+
+    // grid
+    for(let i=MIN; i<=MAX; i++){
+      const {sx} = toScreen(i,0);
+      const {sy} = toScreen(0,i);
+      const isAxis = i === 0;
+      const isMajor = i % 5 === 0;
+      ctx.beginPath();
+      ctx.moveTo(sx, padding);
+      ctx.lineTo(sx, h - padding);
+      ctx.strokeStyle = isAxis ? '#111827' : (isMajor ? '#374151' : '#9ca3af');
+      ctx.lineWidth = isAxis ? 3 : (isMajor ? 1.6 : 0.8);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(padding, sy);
+      ctx.lineTo(w - padding, sy);
+      ctx.strokeStyle = isAxis ? '#111827' : (isMajor ? '#374151' : '#9ca3af');
+      ctx.lineWidth = isAxis ? 3 : (isMajor ? 1.6 : 0.8);
+      ctx.stroke();
+    }
+
+    // axis arrowheads
+    drawArrow(w - padding, toScreen(0,0).sy, 12, 0);
+    drawArrow(toScreen(0,0).sx, padding, 12, -Math.PI/2);
+
+    // labels
+    ctx.fillStyle = '#111827';
+    ctx.font = `bold ${Math.max(13, cell*0.8)}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    [-15,-10,-5,5,10,15].forEach(v => {
+      const {sx,sy} = toScreen(v,0);
+      ctx.fillText(v, sx, sy + 6);
+    });
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    [-15,-10,-5,5,10,15].forEach(v => {
+      const {sx,sy} = toScreen(0,v);
+      ctx.fillText(v, sx - 7, sy);
+    });
+    const origin = toScreen(0,0);
+    ctx.fillText('0', origin.sx - 8, origin.sy + 17);
+    ctx.font = `bold ${Math.max(18, cell*1.25)}px serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('x', w - padding - 5, origin.sy + 24);
+    ctx.textAlign = 'right';
+    ctx.fillText('y', origin.sx - 9, padding + 3);
+
+    // win line
+    if(winData && winData.line){
+      drawWinningLine(winData.line);
+    }
+
+    // stones
+    moves.forEach((s, idx) => drawStone(s.x, s.y, s.player, idx === moves.length - 1));
+
+    // highlight winning stones
+    if(winData && winData.points){
+      winData.points.forEach(p => {
+        const {sx,sy} = toScreen(p.x,p.y);
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(9, cell*0.42), 0, Math.PI*2);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      });
+    }
+  }
+
+  function drawArrow(x,y,size,angle){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(-size, -size*0.55);
+    ctx.lineTo(-size, size*0.55);
+    ctx.closePath();
+    ctx.fillStyle = '#111827';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawStone(x,y,player,isLast){
+    const {sx,sy} = toScreen(x,y);
+    const r = Math.max(7, cell*0.36);
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI*2);
+    ctx.fillStyle = player === 'black' ? '#111827' : '#ffffff';
+    ctx.fill();
+    ctx.lineWidth = player === 'black' ? 1.5 : 2.5;
+    ctx.strokeStyle = '#111827';
+    ctx.stroke();
+    if(isLast){
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 4, 0, Math.PI*2);
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function drawWinningLine(line){
+    const pts = [];
+    // Intersect line with board square boundaries x=MIN/MAX, y=MIN/MAX
+    [MIN,MAX].forEach(x => {
+      if(line.B !== 0){
+        const y = -(line.A*x + line.C) / line.B;
+        if(y >= MIN-1e-9 && y <= MAX+1e-9) pts.push({x,y});
+      }
+    });
+    [MIN,MAX].forEach(y => {
+      if(line.A !== 0){
+        const x = -(line.B*y + line.C) / line.A;
+        if(x >= MIN-1e-9 && x <= MAX+1e-9) pts.push({x,y});
+      }
+    });
+    if(pts.length < 2) return;
+    // choose farthest pair
+    let a=pts[0], b=pts[1], best=-1;
+    for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+      const d = Math.hypot(pts[i].x-pts[j].x, pts[i].y-pts[j].y);
+      if(d>best){best=d; a=pts[i]; b=pts[j];}
+    }
+    const p1 = toScreen(a.x,a.y), p2 = toScreen(b.x,b.y);
+    ctx.beginPath();
+    ctx.moveTo(p1.sx,p1.sy);
+    ctx.lineTo(p2.sx,p2.sy);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([]);
+    ctx.stroke();
+  }
+
+  function bonusCount(){
+    return ['x','y','eq'].filter(k => awarded[k]).length;
+  }
+  function allBonusComplete(){
+    return awarded.x && awarded.y && awarded.eq;
+  }
+  function updateBonusProgress(){
+    if(!bonusProgress || !bonusDoneBtn || !bonusNote) return;
+    const count = bonusCount();
+    const done = allBonusComplete();
+    bonusProgress.textContent = `완료 ${count}/3`;
+    bonusProgress.classList.toggle('done', done);
+    bonusDoneBtn.disabled = !done;
+    bonusNote.classList.toggle('done', done);
+    bonusNote.textContent = done
+      ? '추가점수 3개가 모두 완료되었습니다. 이제 다음 판으로 넘어갈 수 있습니다.'
+      : `추가점수 ${3-count}개가 남았습니다. 완료 전에는 다음 판/새 게임으로 넘어갈 수 없습니다.`;
+  }
+
+  function updateUI(){
+    blackLabel.textContent = getName('black');
+    whiteLabel.textContent = getName('white');
+    blackScoreEl.textContent = scoreOf('black');
+    whiteScoreEl.textContent = scoreOf('white');
+    if(roleHint){
+      roleHint.innerHTML = `이번 판: <b>${getName('black')}</b> = 흑돌, <b>${getName('white')}</b> = 백돌 · 다음 판에는 자동으로 교대됩니다.`;
+    }
+    blackCard.classList.toggle('active', current === 'black' && !gameOver);
+    whiteCard.classList.toggle('active', current === 'white' && !gameOver);
+    undoBtn.disabled = gameOver || moves.length === 0;
+    nextRoundBtn.disabled = !gameOver || !allBonusComplete();
+    resetBtn.disabled = gameOver && !allBonusComplete();
+    if(!gameOver){
+      statusEl.className = 'status';
+      statusEl.innerHTML = `현재 차례: <b>${getName(current)}</b> — 빈 격자점을 터치하세요.`;
+      if(priorityName) priorityName.textContent = '-';
+    } else if(winData && priorityName){
+      priorityName.textContent = getName(other(winData.player));
+    }
+    fillChallengerOptions();
+    updateBonusProgress();
+    draw();
+  }
+
+  function fillChallengerOptions(){
+    const prev = challenger.value;
+    challenger.innerHTML = '';
+    ['black','white'].forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = getName(p);
+      challenger.appendChild(opt);
+    });
+    if(prev) challenger.value = prev;
+  }
+
+  function placeStone(x,y){
+    if(gameOver) return;
+    const key = stoneKey(x,y);
+    if(stones.has(key)){
+      showToast('이미 돌이 있는 자리입니다.');
+      return;
+    }
+    const stone = {x,y,player:current};
+    stones.set(key, stone);
+    moves.push(stone);
+    const result = checkWin(stone);
+    if(result){
+      handleWin(result);
+    } else {
+      current = other(current);
+      updateUI();
+    }
+  }
+
+  function checkWin(lastStone){
+    const mine = moves.filter(s => s.player === lastStone.player);
+    if(mine.length < 5) return null;
+
+    const candidates = new Map();
+    for(const p of mine){
+      if(p === lastStone) continue;
+      const line = normalizeLine(lastStone, p);
+      if(!line) continue;
+      if(candidates.has(line.key)) continue;
+
+      // 오목처럼 상대편 돌이 중간에 있으면 그 직선은 그 지점에서 막힌다.
+      // 빈칸은 허용하고, 상대편 돌이 없는 같은 선분 안에 내 돌이 5개 이상이면 승리.
+      const allOnLine = moves
+        .filter(q => onLine(q, line))
+        .sort((a,b) => (a.x - b.x) || (a.y - b.y));
+
+      let segment = [];
+      for(const q of allOnLine){
+        if(q.player !== lastStone.player){
+          segment = [];
+          continue;
+        }
+        segment.push(q);
+        const hasLast = segment.some(r => r.x === lastStone.x && r.y === lastStone.y);
+        if(hasLast && segment.length >= 5){
+          candidates.set(line.key, {line, points:[...segment]});
+          break;
+        }
+      }
+    }
+    if(candidates.size === 0) return null;
+    let best = null;
+    candidates.forEach(v => {
+      if(!best || v.points.length > best.points.length) best = v;
+    });
+    const math = lineMath(best.line);
+    return { player:lastStone.player, line:best.line, points:best.points, math };
+  }
+
+  function handleWin(result){
+    gameOver = true;
+    winData = result;
+    addScore(result.player, 5);
+    const loser = other(result.player);
+    fillChallengerOptions();
+    challenger.value = loser;
+    judgePanel.classList.add('open');
+    if(priorityName) priorityName.textContent = getName(loser);
+    statusEl.className = 'status win';
+    statusEl.innerHTML = `
+      <div class="win-main"><b>${getName(result.player)}</b> 오목 승리! +5점</div>
+      <div class="small">승리 직선은 보드에만 표시됩니다. 추가점수 3개를 모두 완료해야 다음 판으로 넘어갑니다.</div>
+      <div class="priority-callout" aria-live="polite">
+        <div class="priority-label">추가점수 우선권</div>
+        <span class="priority-name">${getName(loser)}</span>
+        <div class="priority-sub">진 사람이 먼저 답합니다.</div>
+      </div>`;
+    addHistory('오목승리자(5점)', '승리 직선 표시', getName(result.player));
+    updateUI();
+    showToast(`${getName(result.player)} 승리! 오목 점수 5점`);
+  }
+
+  function resetBoard(keepScores=true, swapForNextRound=false){
+    if(swapForNextRound){
+      swapColorOwners();
+    }
+    current = 'black';
+    gameOver = false;
+    moves = [];
+    stones = new Map();
+    winData = null;
+    awarded = { x:false, y:false, eq:false };
+    judgePanel.classList.remove('open');
+    Object.values(inputs).forEach(el => el.value = '');
+    Object.values(results).forEach(el => { el.textContent = ''; el.className = 'result'; });
+    if(priorityName) priorityName.textContent = '-';
+    document.querySelectorAll('.checkBtn').forEach(btn => btn.disabled = false);
+    document.querySelectorAll('.answer-box').forEach(box => box.classList.remove('completed'));
+    updateBonusProgress();
+    if(!keepScores){
+      scores = { s1: 0, s2: 0 };
+      resetColorOwners();
+      historyRows = [];
+      renderHistory();
+    }
+    updateUI();
+  }
+
+  function parseNumber(text){
+    if(text == null) return NaN;
+    let s = String(text).trim();
+    if(!s) return NaN;
+    s = s.replace(/−/g,'-').replace(/–/g,'-').replace(/—/g,'-');
+    s = s.replace(/\s+/g,'');
+    // remove surrounding parentheses
+    if(s.startsWith('(') && s.endsWith(')')) s = s.slice(1,-1);
+    if(s.includes('/')){
+      const parts = s.split('/');
+      if(parts.length !== 2) return NaN;
+      let a = parts[0], b = parts[1];
+      if(a.startsWith('(') && a.endsWith(')')) a = a.slice(1,-1);
+      if(b.startsWith('(') && b.endsWith(')')) b = b.slice(1,-1);
+      if(!/^[-+]?\d+(\.\d+)?$/.test(a) || !/^[-+]?\d+(\.\d+)?$/.test(b)) return NaN;
+      const num = Number(a), den = Number(b);
+      if(!Number.isFinite(num) || !Number.isFinite(den) || den === 0) return NaN;
+      return num / den;
+    }
+    if(!/^[-+]?\d+(\.\d+)?$/.test(s)) return NaN;
+    return Number(s);
+  }
+
+  function closeEnough(a,b){ return Number.isFinite(a) && Math.abs(a-b) <= EPS; }
+
+  function currentChallengerName(){ return getName(challenger.value); }
+
+  function checkAnswer(kind){
+    if(!winData) return;
+    if(awarded[kind === 'eq' ? 'eq' : kind]){
+      showToast('이미 점수가 부여된 항목입니다.');
+      return;
+    }
+    const math = winData.math;
+    let ok = false;
+    let answerText = '';
+    let resultEl = results[kind];
+
+    if(kind === 'x'){
+      const v = parseNumber(inputs.x.value);
+      ok = closeEnough(v, fracValue(math.xInt));
+      answerText = fracText(math.xInt);
+    } else if(kind === 'y'){
+      const v = parseNumber(inputs.y.value);
+      ok = closeEnough(v, fracValue(math.yInt));
+      answerText = fracText(math.yInt);
+    } else if(kind === 'eq'){
+      const mVal = parseNumber(inputs.m.value);
+      const bVal = parseNumber(inputs.b.value);
+      ok = closeEnough(mVal, fracValue(math.m)) && closeEnough(bVal, fracValue(math.b));
+      answerText = math.equation;
+    }
+
+    if(ok){
+      const p = challenger.value;
+      addScore(p, 1);
+      const awardKey = kind === 'eq' ? 'eq' : kind;
+      awarded[awardKey] = true;
+      const itemName = kind === 'x' ? 'xIntercept' : kind === 'y' ? 'yIntercept' : 'equation';
+      const box = document.querySelector(`.answer-box[data-item="${itemName}"]`);
+      if(box) box.classList.add('completed');
+      resultEl.className = 'result ok';
+      resultEl.textContent = `정답! ${currentChallengerName()} +1점`;
+      const label = kind === 'x' ? 'x절편(1점)' : kind === 'y' ? 'y절편(1점)' : '일차함수식(1점)';
+      addHistory(label, answerText, currentChallengerName());
+      const btn = document.querySelector(`.checkBtn[data-kind="${kind}"]`);
+      if(btn) btn.disabled = true;
+      if(allBonusComplete()){
+        statusEl.className = 'status good';
+        statusEl.innerHTML = `<div class="win-main">추가점수 완료!</div><div class="small">이제 <b>다음 판</b>으로 넘어갈 수 있습니다. 다음 판은 흑/백이 바뀝니다.</div>`;
+        showToast('추가점수 완료! 다음 판 가능');
+      }
+      updateUI();
+    } else {
+      resultEl.className = 'result no';
+      resultEl.textContent = `오답입니다. 도전자를 바꿔 다시 시도할 수 있습니다.`;
+      challenger.value = other(challenger.value);
+      showToast(`오답: 도전자를 ${currentChallengerName()}(으)로 바꿨어요.`);
+    }
+  }
+
+  function revealAnswer(kind){
+    if(!winData) return;
+    const math = winData.math;
+    if(kind === 'x'){
+      results.x.className = 'result';
+      results.x.textContent = `정답: ${fracText(math.xInt)}`;
+    } else if(kind === 'y'){
+      results.y.className = 'result';
+      results.y.textContent = `정답: ${fracText(math.yInt)}`;
+    } else if(kind === 'eq'){
+      results.eq.className = 'result';
+      results.eq.textContent = `정답: ${math.equation}  (기울기 ${fracText(math.m)}, y절편 ${fracText(math.b)})`;
+    }
+  }
+
+  function addHistory(item, answer, student){
+    historyRows.push({item, answer, student});
+    renderHistory();
+  }
+  function renderHistory(){
+    historyBody.innerHTML = '';
+    if(historyRows.length === 0){
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="3" class="small">아직 기록이 없습니다.</td>';
+      historyBody.appendChild(tr);
+      return;
+    }
+    historyRows.forEach(r => {
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td'); td1.textContent = r.item;
+      const td2 = document.createElement('td'); td2.textContent = r.answer;
+      const td3 = document.createElement('td'); td3.textContent = r.student;
+      tr.append(td1,td2,td3);
+      historyBody.appendChild(tr);
+    });
+  }
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove('show'), 1700);
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    const rect = canvas.getBoundingClientRect();
+    const p = fromScreen(e.clientX - rect.left, e.clientY - rect.top);
+    if(!p){ showToast('격자점 가까이를 터치하세요.'); return; }
+    placeStone(p.x,p.y);
+  });
+
+  undoBtn.addEventListener('click', () => {
+    if(gameOver || moves.length === 0) return;
+    const last = moves.pop();
+    stones.delete(stoneKey(last.x,last.y));
+    current = last.player;
+    updateUI();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    if(gameOver && !allBonusComplete()){
+      showToast('추가점수 3개를 모두 완료해야 새 게임으로 넘어갈 수 있습니다.');
+      return;
+    }
+    const yes = confirm('점수와 기록까지 모두 초기화할까요?');
+    resetBoard(!yes);
+  });
+
+  nextRoundBtn.addEventListener('click', () => {
+    if(gameOver && !allBonusComplete()){
+      showToast('추가점수 3개를 모두 완료해야 다음 판으로 넘어갈 수 있습니다.');
+      return;
+    }
+    resetBoard(true, true);
+  });
+
+  if(bonusDoneBtn){
+    bonusDoneBtn.addEventListener('click', () => {
+      if(!allBonusComplete()){
+        showToast('추가점수 3개를 모두 완료해야 다음 판으로 넘어갈 수 있습니다.');
+        return;
+      }
+      resetBoard(true, true);
+    });
+  }
+
+  blackName.addEventListener('input', updateUI);
+  whiteName.addEventListener('input', updateUI);
+
+  document.querySelectorAll('.checkBtn').forEach(btn => {
+    btn.addEventListener('click', () => checkAnswer(btn.dataset.kind));
+  });
+  document.querySelectorAll('.revealBtn').forEach(btn => {
+    btn.addEventListener('click', () => revealAnswer(btn.dataset.kind));
+  });
+
+  tabGame.addEventListener('click', () => {
+    tabGame.classList.add('active'); tabHelp.classList.remove('active');
+    gameView.style.display = ''; helpView.classList.remove('open');
+  });
+  tabHelp.addEventListener('click', () => {
+    tabHelp.classList.add('active'); tabGame.classList.remove('active');
+    gameView.style.display = 'none'; helpView.classList.add('open');
+  });
+
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+  updateUI();
+})();
+</script>
+</body>
+</html>
