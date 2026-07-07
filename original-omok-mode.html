@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>오목판 - AI 대결 / 2인 대결</title>
+  <style>
+    :root {
+      --wood1: #d8a85f;
+      --wood2: #c89043;
+      --wood3: #e7bf79;
+      --ink: #1f2937;
+      --panel: rgba(255,255,255,0.88);
+      --black: #111827;
+      --white: #f9fafb;
+      --blue: #2563eb;
+      --orange: #f97316;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(255,255,255,0.12), transparent 18%),
+        radial-gradient(circle at 80% 70%, rgba(0,0,0,0.07), transparent 20%),
+        linear-gradient(105deg, #efd09b, var(--wood1) 45%, #c98f48);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 18px;
+    }
+
+    .app {
+      width: min(1180px, 100%);
+      display: grid;
+      grid-template-columns: minmax(320px, 820px) minmax(260px, 330px);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .board-wrap {
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.18), rgba(0,0,0,0.05)),
+        #d6a159;
+      border: 12px solid #8b5a24;
+      border-radius: 18px;
+      box-shadow: 0 18px 42px rgba(0,0,0,0.25), inset 0 0 18px rgba(255,255,255,0.32);
+      padding: 14px;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    canvas {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: block;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    canvas.locked {
+      cursor: not-allowed;
+    }
+
+    .panel {
+      background: var(--panel);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.6);
+      border-radius: 18px;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+      padding: 18px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+    }
+
+    .mode-card,
+    .status-card {
+      border-radius: 16px;
+      padding: 16px;
+      margin: 14px 0;
+      background: #ffffff;
+      border: 2px solid #e5e7eb;
+    }
+
+    .label {
+      font-size: 15px;
+      font-weight: 800;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+
+    .mode-buttons {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .mode-btn {
+      border: 2px solid #d1d5db;
+      background: #f8fafc;
+      color: #111827;
+      padding: 13px 12px;
+      font-size: 16px;
+    }
+
+    .mode-btn.active {
+      background: #1d4ed8;
+      color: white;
+      border-color: #1d4ed8;
+      box-shadow: 0 8px 18px rgba(37,99,235,0.28);
+    }
+
+    .mode-help {
+      margin-top: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #475569;
+      background: #f1f5f9;
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .turn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      line-height: 1.15;
+    }
+
+    .stone-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: inset -5px -5px 9px rgba(0,0,0,0.22), inset 5px 5px 9px rgba(255,255,255,0.35), 0 2px 5px rgba(0,0,0,0.22);
+      flex: 0 0 auto;
+    }
+
+    .stone-icon.black {
+      background: radial-gradient(circle at 32% 28%, #4b5563, #111827 55%, #020617);
+    }
+
+    .stone-icon.white {
+      background: radial-gradient(circle at 30% 28%, #ffffff, #f3f4f6 58%, #cbd5e1);
+      border: 2px solid #111827;
+    }
+
+    .winner-box {
+      min-height: 96px;
+      border-radius: 16px;
+      padding: 18px;
+      background: #f8fafc;
+      border: 2px dashed #cbd5e1;
+    }
+
+    .winner-box.win {
+      background: #fff7ed;
+      border: 3px solid var(--orange);
+      color: #9a3412;
+    }
+
+    .winner-title {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #64748b;
+    }
+
+    .winner-text {
+      font-size: 30px;
+      font-weight: 950;
+      letter-spacing: -0.05em;
+      line-height: 1.15;
+    }
+
+    .buttons {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 15px 16px;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 0.08s ease, filter 0.15s ease;
+    }
+
+    button:active { transform: scale(0.98); }
+    button:hover { filter: brightness(0.98); }
+
+    .reset {
+      background: var(--blue);
+      color: white;
+    }
+
+    .undo {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .note {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #d1d5db;
+      color: #475569;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .thinking-dot::after {
+      content: '';
+      display: inline-block;
+      width: 1.1em;
+      text-align: left;
+      animation: dots 1.1s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75%, 100% { content: '...'; }
+    }
+
+    @media (max-width: 840px) {
+      body { padding: 10px; }
+      .app { grid-template-columns: 1fr; }
+      .panel { order: -1; }
+      h1 { font-size: 23px; }
+      .turn, .winner-text { font-size: 25px; }
+      .board-wrap { padding: 8px; border-width: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="board-wrap" aria-label="오목판">
+      <canvas id="board" width="900" height="900"></canvas>
+    </section>
+
+    <aside class="panel">
+      <h1>오목판</h1>
+
+      <div class="mode-card">
+        <div class="label">게임 모드 선택</div>
+        <div class="mode-buttons" role="group" aria-label="게임 모드 선택">
+          <button class="mode-btn active" id="pvpModeBtn" type="button">2인 대결</button>
+          <button class="mode-btn" id="aiModeBtn" type="button">AI 대결 · 난이도 상</button>
+        </div>
+        <div class="mode-help" id="modeHelp">2명이 번갈아 돌을 둡니다. 검은 돌부터 시작합니다.</div>
+      </div>
+
+      <div class="status-card">
+        <div class="label">현재 차례</div>
+        <div class="turn" id="turnBox">
+          <span class="stone-icon black" id="turnStone"></span>
+          <span id="turnText">검은 돌</span>
+        </div>
+      </div>
+
+      <div class="winner-box" id="winnerBox">
+        <div class="winner-title">승리 결과</div>
+        <div class="winner-text" id="winnerText">아직 승부 전</div>
+      </div>
+
+      <div class="buttons">
+        <button class="reset" id="resetBtn" type="button">새 게임</button>
+        <button class="undo" id="undoBtn" type="button">마지막 수 되돌리기</button>
+      </div>
+
+      <div class="note" id="ruleNote">
+        <strong>규칙</strong><br>
+        검은 돌부터 시작합니다. 가로, 세로, 대각선 중 한 방향으로 같은 색 돌 5개가 연속으로 놓이면 승리합니다.
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('board');
+    const ctx = canvas.getContext('2d');
+    const turnText = document.getElementById('turnText');
+    const turnStone = document.getElementById('turnStone');
+    const winnerBox = document.getElementById('winnerBox');
+    const winnerText = document.getElementById('winnerText');
+    const resetBtn = document.getElementById('resetBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const pvpModeBtn = document.getElementById('pvpModeBtn');
+    const aiModeBtn = document.getElementById('aiModeBtn');
+    const modeHelp = document.getElementById('modeHelp');
+    const ruleNote = document.getElementById('ruleNote');
+
+    const SIZE = 19;              // 진짜 오목판: 19줄 x 19줄
+    const EMPTY = 0;
+    const BLACK = 1;
+    const WHITE = 2;
+    const HUMAN = BLACK;
+    const AI = WHITE;
+
+    let board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+    let current = BLACK;
+    let winner = EMPTY;
+    let history = [];
+    let winningLine = [];
+    let gameMode = 'pvp';          // 'pvp' 또는 'ai'
+    let aiThinking = false;
+    let aiTimer = null;
+
+    function metrics() {
+      const dpr = window.devicePixelRatio || 1;
+      const cssSize = canvas.getBoundingClientRect().width;
+      const px = Math.round(cssSize * dpr);
+      if (canvas.width !== px || canvas.height !== px) {
+        canvas.width = px;
+        canvas.height = px;
+      }
+      const pad = px * 0.065;
+      const gap = (px - pad * 2) / (SIZE - 1);
+      return { px, pad, gap, dpr };
+    }
+
+    function drawWoodBackground(px) {
+      // 시인성을 위해 세로 나뭇결 패턴은 제거하고, 연한 나무색 바탕만 사용합니다.
+      const grad = ctx.createLinearGradient(0, 0, px, px);
+      grad.addColorStop(0, '#f1cf93');
+      grad.addColorStop(0.48, '#d9a65f');
+      grad.addColorStop(1, '#c28a44');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, px, px);
+
+      // 아주 약한 빛 번짐만 남겨 격자와 돌이 잘 보이도록 합니다.
+      const glow = ctx.createRadialGradient(px * 0.24, px * 0.20, 0, px * 0.24, px * 0.20, px * 0.72);
+      glow.addColorStop(0, 'rgba(255,255,255,0.16)');
+      glow.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, px, px);
+    }
+
+    function drawBoard() {
+      const { px, pad, gap } = metrics();
+      drawWoodBackground(px);
+
+      ctx.save();
+      ctx.lineCap = 'round';
+
+      // 격자
+      for (let i = 0; i < SIZE; i++) {
+        const p = pad + i * gap;
+        ctx.beginPath();
+        ctx.moveTo(pad, p);
+        ctx.lineTo(px - pad, p);
+        ctx.moveTo(p, pad);
+        ctx.lineTo(p, px - pad);
+        ctx.strokeStyle = 'rgba(40, 25, 10, 0.82)';
+        ctx.lineWidth = i === 0 || i === SIZE - 1 ? 2.2 : 1.2;
+        ctx.stroke();
+      }
+
+      // 화점
+      const stars = [[3,3], [9,3], [15,3], [3,9], [9,9], [15,9], [3,15], [9,15], [15,15]];
+      for (const [x, y] of stars) {
+        ctx.beginPath();
+        ctx.arc(pad + x * gap, pad + y * gap, gap * 0.13, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(40, 25, 10, 0.9)';
+        ctx.fill();
+      }
+
+      // 승리선
+      if (winningLine.length >= 5) {
+        const first = winningLine[0];
+        const last = winningLine[winningLine.length - 1];
+        ctx.beginPath();
+        ctx.moveTo(pad + first.x * gap, pad + first.y * gap);
+        ctx.lineTo(pad + last.x * gap, pad + last.y * gap);
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = Math.max(5, gap * 0.16);
+        ctx.stroke();
+      }
+
+      // 돌
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          if (board[y][x] !== EMPTY) drawStone(x, y, board[y][x], pad, gap);
+        }
+      }
+      ctx.restore();
+    }
+
+    function drawStone(x, y, color, pad, gap) {
+      const cx = pad + x * gap;
+      const cy = pad + y * gap;
+      const r = gap * 0.42;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx + r * 0.12, cy + r * 0.18, r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.fill();
+
+      const grad = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.15, cx, cy, r);
+      if (color === BLACK) {
+        grad.addColorStop(0, '#4b5563');
+        grad.addColorStop(0.55, '#111827');
+        grad.addColorStop(1, '#020617');
+      } else {
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.62, '#f1f5f9');
+        grad.addColorStop(1, '#cbd5e1');
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      if (color === WHITE) {
+        ctx.lineWidth = Math.max(1.3, gap * 0.055);
+        ctx.strokeStyle = '#1f2937';
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function playerLabel(color) {
+      if (gameMode === 'ai') return color === HUMAN ? '사용자' : 'AI';
+      return color === BLACK ? '검은 돌' : '흰 돌';
+    }
+
+    function updateModeUI() {
+      pvpModeBtn.classList.toggle('active', gameMode === 'pvp');
+      aiModeBtn.classList.toggle('active', gameMode === 'ai');
+
+      if (gameMode === 'ai') {
+        modeHelp.textContent = '사용자는 검은 돌, AI는 흰 돌입니다. AI는 즉시 승리 수와 즉시 방어 수를 우선 계산합니다.';
+        ruleNote.innerHTML = '<strong>규칙</strong><br>사용자가 먼저 둡니다. 가로, 세로, 대각선 중 한 방향으로 같은 색 돌 5개가 연속으로 놓이면 승리합니다. AI 대결에서는 되돌리기를 누르면 보통 사용자 수와 AI 수가 함께 취소됩니다.';
+      } else {
+        modeHelp.textContent = '2명이 번갈아 돌을 둡니다. 검은 돌부터 시작합니다.';
+        ruleNote.innerHTML = '<strong>규칙</strong><br>검은 돌부터 시작합니다. 가로, 세로, 대각선 중 한 방향으로 같은 색 돌 5개가 연속으로 놓이면 승리합니다.';
+      }
+    }
+
+    function updateStatus() {
+      canvas.classList.toggle('locked', gameMode === 'ai' && (current === AI || aiThinking || winner));
+
+      if (winner) {
+        turnText.textContent = '게임 종료';
+        turnStone.className = 'stone-icon ' + (winner === BLACK ? 'black' : 'white');
+        winnerBox.classList.add('win');
+        winnerText.textContent = playerLabel(winner) + ' 승리!';
+        return;
+      }
+
+      winnerBox.classList.remove('win');
+      winnerText.textContent = '아직 승부 전';
+      turnStone.className = 'stone-icon ' + (current === BLACK ? 'black' : 'white');
+
+      if (gameMode === 'ai') {
+        if (current === HUMAN) {
+          turnText.textContent = '사용자 차례';
+        } else {
+          turnText.innerHTML = aiThinking ? '<span class="thinking-dot">AI 생각 중</span>' : 'AI 차례';
+        }
+      } else {
+        turnText.textContent = current === BLACK ? '검은 돌' : '흰 돌';
+      }
+    }
+
+    function getPointFromEvent(event) {
+      const rect = canvas.getBoundingClientRect();
+      const { px, pad, gap } = metrics();
+      const scale = px / rect.width;
+      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+      const x = (clientX - rect.left) * scale;
+      const y = (clientY - rect.top) * scale;
+      const col = Math.round((x - pad) / gap);
+      const row = Math.round((y - pad) / gap);
+      const snapX = pad + col * gap;
+      const snapY = pad + row * gap;
+      const dist = Math.hypot(x - snapX, y - snapY);
+
+      if (col < 0 || col >= SIZE || row < 0 || row >= SIZE) return null;
+      if (dist > gap * 0.46) return null;
+      return { x: col, y: row };
+    }
+
+    function placeStone(event) {
+      event.preventDefault();
+      if (winner || aiThinking) return;
+      if (gameMode === 'ai' && current !== HUMAN) return;
+
+      const p = getPointFromEvent(event);
+      if (!p) return;
+      if (board[p.y][p.x] !== EMPTY) return;
+
+      makeMove(p.x, p.y, current);
+
+      if (gameMode === 'ai' && !winner && current === AI) {
+        scheduleAiMove();
+      }
+    }
+
+    function makeMove(x, y, color) {
+      board[y][x] = color;
+      history.push({ x, y, color });
+
+      const result = checkWin(x, y, color);
+      if (result.win) {
+        winner = color;
+        winningLine = result.line;
+      } else {
+        current = color === BLACK ? WHITE : BLACK;
+      }
+      updateStatus();
+      drawBoard();
+    }
+
+    function checkWin(x, y, color) {
+      const dirs = [
+        { dx: 1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 1, dy: 1 },
+        { dx: 1, dy: -1 }
+      ];
+
+      for (const d of dirs) {
+        const line = [{ x, y }];
+
+        let nx = x + d.dx, ny = y + d.dy;
+        while (inBounds(nx, ny) && board[ny][nx] === color) {
+          line.push({ x: nx, y: ny });
+          nx += d.dx; ny += d.dy;
+        }
+
+        nx = x - d.dx; ny = y - d.dy;
+        while (inBounds(nx, ny) && board[ny][nx] === color) {
+          line.unshift({ x: nx, y: ny });
+          nx -= d.dx; ny -= d.dy;
+        }
+
+        if (line.length >= 5) return { win: true, line };
+      }
+      return { win: false, line: [] };
+    }
+
+    function inBounds(x, y) {
+      return x >= 0 && x < SIZE && y >= 0 && y < SIZE;
+    }
+
+    function setMode(mode) {
+      if (gameMode === mode) return;
+      gameMode = mode;
+      resetGame();
+    }
+
+    function resetGame() {
+      clearAiTimer();
+      board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+      current = BLACK;
+      winner = EMPTY;
+      history = [];
+      winningLine = [];
+      aiThinking = false;
+      updateModeUI();
+      updateStatus();
+      drawBoard();
+    }
+
+    function clearAiTimer() {
+      if (aiTimer) {
+        clearTimeout(aiTimer);
+        aiTimer = null;
+      }
+    }
+
+    function removeLastMove() {
+      const last = history.pop();
+      if (!last) return null;
+      board[last.y][last.x] = EMPTY;
+      return last;
+    }
+
+    function undoLast() {
+      if (history.length === 0) return;
+      clearAiTimer();
+      aiThinking = false;
+      winner = EMPTY;
+      winningLine = [];
+
+      if (gameMode === 'ai') {
+        const last = history[history.length - 1];
+        if (last.color === AI) {
+          removeLastMove();
+          if (history.length > 0 && history[history.length - 1].color === HUMAN) removeLastMove();
+        } else {
+          removeLastMove();
+        }
+        current = HUMAN;
+      } else {
+        const last = removeLastMove();
+        current = last ? last.color : BLACK;
+      }
+
+      updateStatus();
+      drawBoard();
+    }
+
+    function scheduleAiMove() {
+      aiThinking = true;
+      updateStatus();
+      aiTimer = setTimeout(() => {
+        aiThinking = false;
+        aiTimer = null;
+        if (winner || current !== AI || gameMode !== 'ai') {
+          updateStatus();
+          return;
+        }
+        const move = chooseAiMoveHard();
+        if (move) makeMove(move.x, move.y, AI);
+      }, 260);
+    }
+
+    function chooseAiMoveHard() {
+      const candidates = getCandidateMoves(2);
+      if (candidates.length === 0) return { x: 9, y: 9 };
+
+      // 1. AI가 바로 이길 수 있으면 둔다.
+      const winningMove = findImmediateWin(AI, candidates);
+      if (winningMove) return winningMove;
+
+      // 2. 사용자가 바로 이길 수 있으면 반드시 막는다.
+      const blockingMove = findImmediateWin(HUMAN, candidates);
+      if (blockingMove) return blockingMove;
+
+      // 3. 공격 점수 + 방어 점수 + 중앙 선호를 합산한다.
+      let bestScore = -Infinity;
+      let bestMoves = [];
+
+      for (const move of candidates) {
+        const attack = evaluatePoint(move.x, move.y, AI);
+        const defense = evaluatePoint(move.x, move.y, HUMAN);
+        const centerBonus = 30 - Math.hypot(move.x - 9, move.y - 9);
+        let score = attack * 1.14 + defense * 1.02 + centerBonus;
+
+        // 이 수를 둔 뒤 상대에게 즉시 승리를 허용하는 수는 크게 감점한다.
+        board[move.y][move.x] = AI;
+        const opponentWin = findImmediateWin(HUMAN, getCandidateMoves(2));
+        board[move.y][move.x] = EMPTY;
+        if (opponentWin) score -= 120000;
+
+        if (score > bestScore + 0.001) {
+          bestScore = score;
+          bestMoves = [move];
+        } else if (Math.abs(score - bestScore) <= 0.001) {
+          bestMoves.push(move);
+        }
+      }
+
+      // 같은 점수라면 중앙에 가까운 수를 우선한다.
+      bestMoves.sort((a, b) => Math.hypot(a.x - 9, a.y - 9) - Math.hypot(b.x - 9, b.y - 9));
+      return bestMoves[0];
+    }
+
+    function getCandidateMoves(radius = 2) {
+      const seen = new Set();
+      const candidates = [];
+      let hasStone = false;
+
+      for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+          if (board[y][x] === EMPTY) continue;
+          hasStone = true;
+          for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+              const nx = x + dx;
+              const ny = y + dy;
+              if (!inBounds(nx, ny) || board[ny][nx] !== EMPTY) continue;
+              const key = nx + ',' + ny;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              candidates.push({ x: nx, y: ny });
+            }
+          }
+        }
+      }
+
+      if (!hasStone) return [{ x: 9, y: 9 }];
+      return candidates;
+    }
+
+    function findImmediateWin(color, candidates) {
+      for (const move of candidates) {
+        if (board[move.y][move.x] !== EMPTY) continue;
+        board[move.y][move.x] = color;
+        const result = checkWin(move.x, move.y, color);
+        board[move.y][move.x] = EMPTY;
+        if (result.win) return move;
+      }
+      return null;
+    }
+
+    function evaluatePoint(x, y, color) {
+      if (board[y][x] !== EMPTY) return -Infinity;
+      board[y][x] = color;
+
+      const dirs = [
+        { dx: 1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 1, dy: 1 },
+        { dx: 1, dy: -1 }
+      ];
+
+      let totalScore = 0;
+      for (const d of dirs) {
+        totalScore += consecutiveScore(x, y, color, d.dx, d.dy);
+        totalScore += windowPatternScore(x, y, color, d.dx, d.dy);
+      }
+
+      board[y][x] = EMPTY;
+      return totalScore;
+    }
+
+    function consecutiveScore(x, y, color, dx, dy) {
+      let count = 1;
+      let openEnds = 0;
+
+      let nx = x + dx, ny = y + dy;
+      while (inBounds(nx, ny) && board[ny][nx] === color) {
+        count++;
+        nx += dx; ny += dy;
+      }
+      if (inBounds(nx, ny) && board[ny][nx] === EMPTY) openEnds++;
+
+      nx = x - dx; ny = y - dy;
+      while (inBounds(nx, ny) && board[ny][nx] === color) {
+        count++;
+        nx -= dx; ny -= dy;
+      }
+      if (inBounds(nx, ny) && board[ny][nx] === EMPTY) openEnds++;
+
+      if (count >= 5) return 1000000;
+      if (count === 4 && openEnds === 2) return 130000;
+      if (count === 4 && openEnds === 1) return 65000;
+      if (count === 3 && openEnds === 2) return 15000;
+      if (count === 3 && openEnds === 1) return 3500;
+      if (count === 2 && openEnds === 2) return 900;
+      if (count === 2 && openEnds === 1) return 180;
+      return 18;
+    }
+
+    function windowPatternScore(x, y, color, dx, dy) {
+      const opponent = color === BLACK ? WHITE : BLACK;
+      let score = 0;
+
+      // 후보 수를 포함하는 길이 5의 창을 모두 본다. 끊어진 4, 끊어진 3도 감지하기 위함이다.
+      for (let start = -4; start <= 0; start++) {
+        let own = 0;
+        let empty = 0;
+        let blocked = false;
+
+        for (let i = 0; i < 5; i++) {
+          const nx = x + (start + i) * dx;
+          const ny = y + (start + i) * dy;
+          if (!inBounds(nx, ny)) {
+            blocked = true;
+            break;
+          }
+          if (board[ny][nx] === opponent) blocked = true;
+          else if (board[ny][nx] === color) own++;
+          else empty++;
+        }
+
+        if (blocked) continue;
+        if (own >= 5) score += 1000000;
+        else if (own === 4 && empty === 1) score += 85000;
+        else if (own === 3 && empty === 2) score += 6500;
+        else if (own === 2 && empty === 3) score += 520;
+      }
+      return score;
+    }
+
+    canvas.addEventListener('click', placeStone);
+    canvas.addEventListener('touchstart', placeStone, { passive: false });
+    resetBtn.addEventListener('click', resetGame);
+    undoBtn.addEventListener('click', undoLast);
+    pvpModeBtn.addEventListener('click', () => setMode('pvp'));
+    aiModeBtn.addEventListener('click', () => setMode('ai'));
+    window.addEventListener('resize', drawBoard);
+
+    updateModeUI();
+    updateStatus();
+    drawBoard();
+  </script>
+</body>
+</html>
